@@ -650,6 +650,16 @@
     color:var(--white); font-family:'Manrope',sans-serif; font-size:14px; padding:13px 15px;
     outline:none; transition:border-color .25s;
   }
+  .checkout-field select{
+    cursor:pointer;
+  }
+  .checkout-field select option{
+    background:var(--black-2); color:var(--white);
+    font-family:'Manrope',sans-serif; font-size:14px;
+  }
+  .checkout-field select option:checked{
+    background:var(--line); color:var(--white);
+  }
   .checkout-field input:focus, .checkout-field select:focus, .checkout-field textarea:focus{ border-color:var(--purple); }
   .checkout-field textarea{ resize:vertical; min-height:80px; }
   .checkout-submit{
@@ -1030,11 +1040,34 @@
   window.addEventListener('load', runIntro);
 
   /* ===== ECOMMERCE ===== */
-  const client = initSupabase();
   let allProducts = [];
   let allCategories = [];
+  let client = null;
 
   async function initApp() {
+    // Initialiser Supabase avec retry
+    await new Promise(function(resolve, reject) {
+      if (typeof waitForSupabase === 'function') {
+        waitForSupabase(15, function(err, c) {
+          if (err || !c) {
+            console.error('[MYAZZ] Supabase non disponible:', err);
+            reject(err || new Error('Service indisponible'));
+            return;
+          }
+          client = c;
+          resolve();
+        });
+      } else {
+        // Fallback direct si waitForSupabase n'existe pas
+        client = initSupabase();
+        if (!client) {
+          reject(new Error('Service indisponible'));
+        } else {
+          resolve();
+        }
+      }
+    });
+
     // Auth state
     await updateAuthUI();
 

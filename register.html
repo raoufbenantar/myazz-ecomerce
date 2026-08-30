@@ -7,7 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,400&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- Supabase CDN -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<!-- Config + Client -->
 <script src="js/config.js"></script>
 <script src="js/supabase-client.js"></script>
 <style>
@@ -17,6 +19,7 @@
     --line:#2b2b26; --purple:#f4f2ea; --purple-dim:#8c8b83;
   }
   *{margin:0;padding:0;box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
   body{
     background:var(--black); color:var(--white); font-family:'Manrope',sans-serif;
     min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
@@ -39,12 +42,26 @@
     display:block; font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.08em;
     text-transform:uppercase; color:var(--silver-dim); margin-bottom:8px;
   }
-  .auth-field input, .auth-field select{
+  .auth-field input{
     width:100%; background:var(--black); border:1px solid var(--line); border-radius:12px;
     color:var(--white); font-family:'Manrope',sans-serif; font-size:14px; padding:13px 15px;
     outline:none; transition:border-color .25s;
+    -webkit-appearance:none; appearance:none;
   }
-  .auth-field input:focus, .auth-field select:focus{ border-color:var(--purple); }
+  .auth-field select{
+    width:100%; background:var(--black); border:1px solid var(--line); border-radius:12px;
+    color:var(--white); font-family:'Manrope',sans-serif; font-size:14px; padding:13px 15px;
+    outline:none; transition:border-color .25s;
+    cursor:pointer;
+  }
+  .auth-field select option{
+    background:var(--black-2); color:var(--white);
+    font-family:'Manrope',sans-serif; font-size:14px;
+  }
+  .auth-field select option:checked{
+    background:var(--line); color:var(--white);
+  }
+  .auth-field select:focus{ border-color:var(--purple); }
   .auth-btn{
     width:100%; margin-top:8px; padding:15px; border-radius:999px; background:var(--white); color:var(--black);
     border:none; font-family:'JetBrains Mono',monospace; font-size:12px; letter-spacing:.06em; text-transform:uppercase;
@@ -91,18 +108,18 @@
   <div class="auth-error" id="authError"></div>
   <div class="auth-success" id="authSuccess"></div>
 
-  <form id="registerForm">
+  <form id="registerForm" method="POST" action="" onsubmit="return false;" autocomplete="on">
     <div class="auth-field">
       <label for="fullName">Nom complet</label>
-      <input type="text" id="fullName" name="fullName" placeholder="Votre nom et prénom" required>
+      <input type="text" id="fullName" name="fullName" placeholder="Votre nom et prénom" required autocomplete="name">
     </div>
     <div class="auth-field">
       <label for="email">Adresse e-mail</label>
-      <input type="email" id="email" name="email" placeholder="vous@exemple.com" required>
+      <input type="email" id="email" name="email" placeholder="vous@exemple.com" required autocomplete="email">
     </div>
     <div class="auth-field">
       <label for="phone">Téléphone</label>
-      <input type="tel" id="phone" name="phone" placeholder="0X XX XX XX XX" required>
+      <input type="tel" id="phone" name="phone" placeholder="0X XX XX XX XX" required autocomplete="tel">
     </div>
     <div class="auth-field">
       <label for="wilaya">Wilaya</label>
@@ -112,7 +129,7 @@
     </div>
     <div class="auth-field">
       <label for="password">Mot de passe</label>
-      <input type="password" id="password" name="password" placeholder="••••••••" required minlength="6">
+      <input type="password" id="password" name="password" placeholder="••••••••" required minlength="6" autocomplete="new-password">
     </div>
     <button type="submit" class="auth-btn" id="registerBtn">Créer mon compte</button>
   </form>
@@ -123,67 +140,161 @@
 </div>
 
 <script>
-(async function(){
-  const client = initSupabase();
-  const user = await getCurrentUser();
-  if (user) {
-    window.location.href = 'index.html';
+/* ================================================================
+   1. PEUPLER LES WILAYAS (synchrone, immédiat, fallback inline)
+   ================================================================ */
+(function populateWilayas(){
+  var select = document.getElementById('wilaya');
+  if (!select) return;
+  var wilayas = [
+    "01 - Adrar","02 - Chlef","03 - Laghouat","04 - Oum El Bouaghi","05 - Batna",
+    "06 - Béjaïa","07 - Biskra","08 - Béchar","09 - Blida","10 - Bouira",
+    "11 - Tamanrasset","12 - Tébessa","13 - Tlemcen","14 - Tiaret","15 - Tizi Ouzou",
+    "16 - Alger","17 - Djelfa","18 - Jijel","19 - Sétif","20 - Saïda",
+    "21 - Skikda","22 - Sidi Bel Abbès","23 - Annaba","24 - Guelma","25 - Constantine",
+    "26 - Médéa","27 - Mostaganem","28 - M'Sila","29 - Mascara","30 - Ouargla",
+    "31 - Oran","32 - El Bayadh","33 - Illizi","34 - Bordj Bou Arréridj","35 - Boumerdès",
+    "36 - El Tarf","37 - Tindouf","38 - Tissemsilt","39 - El Oued","40 - Khenchela",
+    "41 - Souk Ahras","42 - Tipaza","43 - Mila","44 - Aïn Defla","45 - Naâma",
+    "46 - Aïn Témouchent","47 - Ghardaïa","48 - Relizane","49 - Timimoun","50 - Bordj Badji Mokhtar",
+    "51 - Ouled Djellal","52 - Béni Abbès","53 - In Salah","54 - In Guezzam","55 - Touggourt",
+    "56 - Djanet","57 - El M'Ghair","58 - El Meniaa"
+  ];
+  wilayas.forEach(function(w){
+    var opt = document.createElement('option');
+    opt.value = w;
+    opt.textContent = w;
+    select.appendChild(opt);
+  });
+})();
+
+/* ================================================================
+   2. LOGIQUE DE SOUMISSION SÉCURISÉE
+   ================================================================ */
+(function(){
+  'use strict';
+
+  var form     = document.getElementById('registerForm');
+  var btn      = document.getElementById('registerBtn');
+  var errorEl  = document.getElementById('authError');
+  var successEl= document.getElementById('authSuccess');
+
+  if (!form || !btn) {
+    console.error('[MYAZZ] Formulaire ou bouton introuvable.');
     return;
   }
 
-  // Populate wilayas
-  const wilayaSelect = document.getElementById('wilaya');
-  WILAYAS.forEach(w => {
-    const opt = document.createElement('option');
-    opt.value = w; opt.textContent = w;
-    wilayaSelect.appendChild(opt);
-  });
+  /* ---- Auth check (non bloquant) ---- */
+  if (typeof waitForSupabase === 'function') {
+    waitForSupabase(10, function(err, client) {
+      if (err || !client) return;
+      client.auth.getUser().then(function(res) {
+        if (res.data && res.data.user) {
+          console.log('[MYAZZ] Utilisateur déjà connecté, redirection...');
+          window.location.href = 'index.html';
+        }
+      }).catch(function(e) {
+        console.error('[MYAZZ] Auth check error:', e);
+      });
+    });
+  }
 
-  const form = document.getElementById('registerForm');
-  const btn = document.getElementById('registerBtn');
-  const errorEl = document.getElementById('authError');
-  const successEl = document.getElementById('authSuccess');
-
-  form.addEventListener('submit', async (e) => {
+  /* ---- Handler principal ---- */
+  form.addEventListener('submit', function(e) {
     e.preventDefault();
+    e.stopPropagation();
     errorEl.classList.remove('show');
     successEl.classList.remove('show');
-    btn.disabled = true;
-    btn.textContent = 'Création...';
 
-    const fullName = form.fullName.value.trim();
-    const email = form.email.value.trim();
-    const phone = form.phone.value.trim();
-    const wilaya = form.wilaya.value;
-    const password = form.password.value;
+    var fullName = form.fullName.value.trim();
+    var email    = form.email.value.trim();
+    var phone    = form.phone.value.trim();
+    var wilaya   = form.wilaya.value;
+    var password = form.password.value;
 
-    const { data, error } = await client.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: fullName }
-      }
-    });
-
-    if (error) {
-      errorEl.textContent = error.message;
+    if (!wilaya) {
+      errorEl.textContent = 'Veuillez sélectionner une wilaya.';
       errorEl.classList.add('show');
-      btn.disabled = false;
-      btn.textContent = 'Créer mon compte';
       return;
     }
 
-    // Update profile with phone and wilaya
-    if (data.user) {
-      await client.from('profiles').update({ phone, wilaya }).eq('id', data.user.id);
+    btn.disabled = true;
+    var originalText = btn.textContent;
+    btn.textContent = 'Création en cours...';
+
+    // Vérifier que waitForSupabase existe
+    if (typeof waitForSupabase !== 'function') {
+      console.error('[MYAZZ] waitForSupabase non disponible. Vérifiez que supabase-client.js est chargé.');
+      errorEl.textContent = 'Erreur de chargement du service. Veuillez rafraîchir la page.';
+      errorEl.classList.add('show');
+      btn.disabled = false;
+      btn.textContent = originalText;
+      return;
     }
 
-    successEl.textContent = 'Compte créé avec succès ! Vérifiez votre e-mail pour confirmer votre inscription.';
-    successEl.classList.add('show');
-    form.reset();
-    btn.disabled = false;
-    btn.textContent = 'Créer mon compte';
+    waitForSupabase(10, function(err, client) {
+      if (err) {
+        console.error('[MYAZZ] Connexion impossible:', err);
+        errorEl.textContent = err.message;
+        errorEl.classList.add('show');
+        btn.disabled = false;
+        btn.textContent = originalText;
+        return;
+      }
+
+      client.auth.signUp({
+        email: email,
+        password: password,
+        options: {
+          data: { full_name: fullName }
+        }
+      })
+      .then(function(res) {
+        if (res.error) {
+          var msg = res.error.message;
+          if (msg.includes('already registered') || msg.includes('User already registered')) {
+            msg = 'Cet e-mail est déjà utilisé. Essayez de vous connecter.';
+          } else if (msg.includes('Password should be')) {
+            msg = 'Le mot de passe est trop faible. Utilisez au moins 6 caractères.';
+          } else if (msg.includes('valid email')) {
+            msg = 'Veuillez entrer une adresse e-mail valide.';
+          }
+          errorEl.textContent = msg;
+          errorEl.classList.add('show');
+          btn.disabled = false;
+          btn.textContent = originalText;
+          return;
+        }
+
+        // Mise à jour du profil
+        if (res.data && res.data.user) {
+          client.from('profiles')
+            .update({ phone: phone, wilaya: wilaya })
+            .eq('id', res.data.user.id)
+            .then(function(profileRes) {
+              if (profileRes.error) {
+                console.warn('[MYAZZ] Profile update warning:', profileRes.error);
+              }
+            });
+        }
+
+        successEl.textContent = 'Compte créé avec succès ! Vérifiez votre e-mail pour confirmer votre inscription.';
+        successEl.classList.add('show');
+        form.reset();
+        btn.disabled = false;
+        btn.textContent = originalText;
+      })
+      .catch(function(err) {
+        console.error('[MYAZZ] Registration error:', err);
+        errorEl.textContent = 'Une erreur inattendue est survenue. Veuillez réessayer.';
+        errorEl.classList.add('show');
+        btn.disabled = false;
+        btn.textContent = originalText;
+      });
+    });
   });
+
+  console.log('[MYAZZ] Register form initialized.');
 })();
 </script>
 </body>

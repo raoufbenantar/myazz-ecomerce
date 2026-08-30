@@ -7,7 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,400&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- Supabase CDN -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<!-- Config + Client (chargés APRÈS la librairie) -->
 <script src="js/config.js"></script>
 <script src="js/supabase-client.js"></script>
 <style>
@@ -62,6 +64,11 @@
     padding:12px 16px; border-radius:12px; font-size:13px; margin-bottom:18px; display:none;
   }
   .auth-error.show{ display:block; }
+  .auth-success{
+    background:rgba(50,180,80,0.12); border:1px solid rgba(50,180,80,0.35); color:#8d8;
+    padding:12px 16px; border-radius:12px; font-size:13px; margin-bottom:18px; display:none;
+  }
+  .auth-success.show{ display:block; }
   .back-link{
     display:inline-flex; align-items:center; gap:8px; color:var(--silver); text-decoration:none;
     font-size:13px; margin-bottom:32px; transition:color .25s;
@@ -84,15 +91,16 @@
   <div class="auth-subtitle">Connectez-vous à votre compte</div>
 
   <div class="auth-error" id="authError"></div>
+  <div class="auth-success" id="authSuccess"></div>
 
-  <form id="loginForm">
+  <form id="loginForm" method="POST" action="" onsubmit="return false;" autocomplete="on">
     <div class="auth-field">
       <label for="email">Adresse e-mail</label>
-      <input type="email" id="email" name="email" placeholder="vous@exemple.com" required>
+      <input type="email" id="email" name="email" placeholder="vous@exemple.com" required autocomplete="email">
     </div>
     <div class="auth-field">
       <label for="password">Mot de passe</label>
-      <input type="password" id="password" name="password" placeholder="••••••••" required minlength="6">
+      <input type="password" id="password" name="password" placeholder="••••••••" required minlength="6" autocomplete="current-password">
     </div>
     <button type="submit" class="auth-btn" id="loginBtn">Se connecter</button>
   </form>
@@ -103,45 +111,146 @@
 </div>
 
 <script>
-(async function(){
-  const client = initSupabase();
-  const user = await getCurrentUser();
-  if (user) {
-    const params = new URLSearchParams(window.location.search);
-    const redirect = params.get('redirect') || 'index.html';
-    window.location.href = redirect;
+(function(){
+  'use strict';
+
+  var form     = document.getElementById('loginForm');
+  var btn      = document.getElementById('loginBtn');
+  var errorEl  = document.getElementById('authError');
+  var successEl= document.getElementById('authSuccess');
+
+  if (!form || !btn) {
+    console.error('[MYAZZ] Formulaire ou bouton introuvable.');
     return;
   }
 
-  const form = document.getElementById('loginForm');
-  const btn = document.getElementById('loginBtn');
-  const errorEl = document.getElementById('authError');
+  /* ---- Détection robuste de Supabase avec retry ---- */
+  function waitForSupabase(maxRetries, callback) {
+    var attempt = 0;
+    function tryInit() {
+      attempt++;
+      console.log('[MYAZZ] Tentative init Supabase #' + attempt);
 
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    errorEl.classList.remove('show');
-    btn.disabled = true;
-    btn.textContent = 'Connexion...';
+      // Vérifier que la librairie CDN est chargée
+      if (typeof window === 'undefined') {
+        callback(new Error('window non disponible'));
+        return;
+      }
+      if (!window.supabase) {
+        console.warn('[MYAZZ] window.supabase absent (librairie CDN non chargée)');
+        if (attempt < maxRetries) {
+          setTimeout(tryInit, 300);
+          return;
+        }
+        callback(new Error('La librairie Supabase n\'a pas pu être chargée. Vérifiez votre connexion internet ou si un bloqueur de pub bloque cdn.jsdelivr.net.'));
+        return;
+      }
+      if (!window.supabase.createClient) {
+        console.warn('[MYAZZ] window.supabase.createClient absent');
+        if (attempt < maxRetries) {
+          setTimeout(tryInit, 300);
+          return;
+        }
+        callback(new Error('Version incompatible de la librairie Supabase.'));
+        return;
+      }
+      // Vérifier que les credentials sont définis
+      if (typeof SUPABASE_URL === 'undefined' || typeof SUPABASE_ANON_KEY === 'undefined') {
+        callback(new Error('Configuration Supabase manquante (config.js non chargé).'));
+        return;
+      }
+      if (!SUPABASE_URL.startsWith('https://') || SUPABASE_ANON_KEY.length < 10) {
+        callback(new Error('Clés Supabase invalides. Vérifiez js/config.js.'));
+        return;
+      }
 
-    const email = form.email.value.trim();
-    const password = form.password.value;
+      try {
+        var client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        console.log('[MYAZZ] Supabase initialisé avec succès');
+        callback(null, client);
+      } catch (e) {
+        callback(new Error('Erreur lors de l\'initialisation Supabase: ' + e.message));
+      }
+    }
+    tryInit();
+  }
 
-    const { data, error } = await client.auth.signInWithPassword({ email, password });
-
-    if (error) {
-      errorEl.textContent = error.message === 'Invalid login credentials'
-        ? 'E-mail ou mot de passe incorrect.'
-        : error.message;
-      errorEl.classList.add('show');
-      btn.disabled = false;
-      btn.textContent = 'Se connecter';
+  /* ---- Auth check (non bloquant) ---- */
+  waitForSupabase(10, function(err, client) {
+    if (err) {
+      console.error('[MYAZZ] Auth check impossible:', err);
       return;
     }
-
-    const params = new URLSearchParams(window.location.search);
-    const redirect = params.get('redirect') || 'index.html';
-    window.location.href = redirect;
+    client.auth.getUser().then(function(res) {
+      if (res.data && res.data.user) {
+        console.log('[MYAZZ] Utilisateur déjà connecté, redirection...');
+        var params = new URLSearchParams(window.location.search);
+        window.location.href = params.get('redirect') || 'index.html';
+      }
+    }).catch(function(e) {
+      console.error('[MYAZZ] Auth check error:', e);
+    });
   });
+
+  /* ---- Soumission du formulaire ---- */
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    errorEl.classList.remove('show');
+    successEl.classList.remove('show');
+
+    var email = form.email.value.trim();
+    var password = form.password.value;
+
+    btn.disabled = true;
+    var originalText = btn.textContent;
+    btn.textContent = 'Connexion...';
+
+    waitForSupabase(10, function(err, client) {
+      if (err) {
+        console.error('[MYAZZ] Connexion impossible:', err);
+        errorEl.textContent = err.message;
+        errorEl.classList.add('show');
+        btn.disabled = false;
+        btn.textContent = originalText;
+        return;
+      }
+
+      client.auth.signInWithPassword({ email: email, password: password })
+        .then(function(res) {
+          if (res.error) {
+            var msg = res.error.message;
+            if (msg === 'Invalid login credentials') {
+              msg = 'E-mail ou mot de passe incorrect.';
+            } else if (msg.includes('Email not confirmed')) {
+              msg = 'Veuillez confirmer votre e-mail avant de vous connecter.';
+            }
+            errorEl.textContent = msg;
+            errorEl.classList.add('show');
+            btn.disabled = false;
+            btn.textContent = originalText;
+            return;
+          }
+
+          successEl.textContent = 'Connexion réussie ! Redirection...';
+          successEl.classList.add('show');
+
+          var params = new URLSearchParams(window.location.search);
+          setTimeout(function() {
+            window.location.href = params.get('redirect') || 'index.html';
+          }, 800);
+        })
+        .catch(function(err) {
+          console.error('[MYAZZ] Login error:', err);
+          errorEl.textContent = 'Une erreur est survenue. Vérifiez votre connexion et réessayez.';
+          errorEl.classList.add('show');
+          btn.disabled = false;
+          btn.textContent = originalText;
+        });
+    });
+  });
+
+  console.log('[MYAZZ] Login form initialized.');
 })();
 </script>
 </body>

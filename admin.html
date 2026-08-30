@@ -296,7 +296,31 @@
 
 <script>
 (async function(){
-  const client = initSupabase();
+  // Initialiser Supabase avec retry
+  let client = null;
+  await new Promise(function(resolve, reject) {
+    if (typeof waitForSupabase === 'function') {
+      waitForSupabase(15, function(err, c) {
+        if (err || !c) {
+          console.error('[MYAZZ] Supabase non disponible:', err);
+          document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#e66;font-family:sans-serif;"><p>Erreur de connexion au service. Vérifiez votre connexion internet ou ouvrez la console (F12).</p></div>';
+          reject(err);
+          return;
+        }
+        client = c;
+        resolve();
+      });
+    } else {
+      client = initSupabase();
+      if (!client) {
+        document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#e66;font-family:sans-serif;"><p>Erreur de connexion au service.</p></div>';
+        reject(new Error('Service indisponible'));
+      } else {
+        resolve();
+      }
+    }
+  });
+
   await requireAdmin();
 
   let allOrders = [];
