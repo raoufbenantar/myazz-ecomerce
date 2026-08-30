@@ -296,6 +296,18 @@
   }
   .buy-btn:hover .buy-btn-icon{ transform:scale(1.12); }
 
+  .hero-price{
+    position:absolute; bottom:-25px; left:2px; z-index:2;
+    color:var(--white); font-family:'JetBrains Mono',monospace;
+    font-size:15px; font-weight:700; letter-spacing:.02em;
+    white-space:nowrap; text-shadow:0 2px 12px rgba(0,0,0,.8);
+  }
+  .hero-price small{
+    display:block; margin-bottom:3px; color:var(--silver);
+    font-family:'Manrope',sans-serif; font-size:8px; font-weight:600;
+    letter-spacing:.12em; text-transform:uppercase;
+  }
+
   @media(min-width:481px){
     .device-frame{ width:340px; }
     .device-label{ top:-38px; left:6px; }
@@ -303,6 +315,7 @@
     .dl-model{ font-size:20px; }
     .buy-btn{ bottom:-32px; right:4px; padding:11px 13px 11px 20px; font-size:10.5px; }
     .buy-btn-icon{ width:15px; height:15px; }
+    .hero-price{ bottom:-30px; left:4px; font-size:17px; }
   }
   @media(min-width:769px){
     .device-stage{ min-height:520px; margin:56px 0 50px; }
@@ -314,6 +327,14 @@
     .dl-model{ font-size:27px; }
     .buy-btn{ bottom:-42px; right:6px; padding:13px 16px 13px 24px; font-size:11.5px; }
     .buy-btn-icon{ width:16px; height:16px; }
+    .hero-price{ bottom:-40px; left:8px; font-size:20px; }
+  }
+
+  @media(max-width:360px){
+    .hero-price{ font-size:13px; }
+    .hero-price small{ font-size:7px; }
+    .buy-btn{ padding-left:12px; padding-right:9px; font-size:8.5px; gap:5px; }
+    .buy-btn-icon{ width:13px; height:13px; }
   }
 
   .section-head{
@@ -743,6 +764,10 @@
       </div>
       <img class="device-img active" id="deviceImgA" src="img/WhatsApp_Image_2026-07-23_at_12.57.38-removebg-preview.png" alt="MYAZZ PULSE">
       <img class="device-img" id="deviceImgB" src="" alt="">
+      <div class="hero-price" aria-label="Prix : 36 000 dinars algériens">
+        <small>Prix</small>
+        36 000 DA
+      </div>
       <button class="buy-btn" id="buyBtn">
         <span>Commander</span>
         <svg class="buy-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 6h15l-1.5 9h-12z"/><path d="M6 6L4.5 3H2"/><circle cx="9.5" cy="19.5" r="1.5"/><circle cx="16.5" cy="19.5" r="1.5"/></svg>
@@ -941,12 +966,12 @@
   const devices = [
     { img:'img/WhatsApp_Image_2026-07-23_at_12.57.38-removebg-preview.png',
       model:'MYAZZ PULSE',
-      price:12500,
+      price:36000,
       feat1:{t:'Écran AMOLED', d:'Une image nette et lumineuse, même en plein soleil.'},
       feat2:{t:'Autonomie 6 jours', d:'Une charge qui tient toute la semaine.'} },
     { img:'img/WhatsApp_Image_2026-07-01_at_11.02.39__1_-removebg-preview.png',
       model:'MYAZZ PULSE',
-      price:12500,
+      price:36000,
       feat1:{t:'Écran AMOLED', d:'Une image nette et lumineuse, même en plein soleil.'},
       feat2:{t:'Autonomie 6 jours', d:'Une charge qui tient toute la semaine.'} },
   ];
