@@ -119,6 +119,23 @@ alter table public.order_items enable row level security;
 alter table public.cart_items enable row level security;
 
 -- PROFILES
+-- SECURITY DEFINER prevents admin checks from recursively evaluating profiles RLS.
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid() AND is_admin = true
+  );
+$$;
+
+REVOKE ALL ON FUNCTION public.is_admin() FROM public;
+GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated;
+
 CREATE POLICY "Profiles are viewable by everyone" ON public.profiles
   FOR SELECT USING (true);
 
@@ -126,46 +143,34 @@ CREATE POLICY "Users can update own profile" ON public.profiles
   FOR UPDATE USING (auth.uid() = id);
 
 CREATE POLICY "Admin can update any profile" ON public.profiles
-  FOR ALL USING (
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND is_admin = true)
-  );
+  FOR UPDATE USING (public.is_admin()) WITH CHECK (public.is_admin());
 
 -- CATEGORIES
 CREATE POLICY "Categories are viewable by everyone" ON public.categories
   FOR SELECT USING (true);
 
 CREATE POLICY "Only admin can modify categories" ON public.categories
-  FOR ALL USING (
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND is_admin = true)
-  );
+  FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
 
 -- PRODUCTS
 CREATE POLICY "Active products are viewable by everyone" ON public.products
   FOR SELECT USING (active = true);
 
 CREATE POLICY "Admin can view all products" ON public.products
-  FOR SELECT USING (
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND is_admin = true)
-  );
+  FOR SELECT USING (public.is_admin());
 
 CREATE POLICY "Only admin can modify products" ON public.products
-  FOR ALL USING (
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND is_admin = true)
-  );
+  FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
 
 -- ORDERS
 CREATE POLICY "Users can view own orders" ON public.orders
   FOR SELECT USING (auth.uid() = user_id);
 
 CREATE POLICY "Admin can view all orders" ON public.orders
-  FOR SELECT USING (
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND is_admin = true)
-  );
+  FOR SELECT USING (public.is_admin());
 
 CREATE POLICY "Admin can update orders" ON public.orders
-  FOR UPDATE USING (
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND is_admin = true)
-  );
+  FOR UPDATE USING (public.is_admin()) WITH CHECK (public.is_admin());
 
 CREATE POLICY "Anyone can insert orders (guest checkout)" ON public.orders
   FOR INSERT WITH CHECK (true);
@@ -177,9 +182,7 @@ CREATE POLICY "Users can view own order items" ON public.order_items
   );
 
 CREATE POLICY "Admin can view all order items" ON public.order_items
-  FOR SELECT USING (
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND is_admin = true)
-  );
+  FOR SELECT USING (public.is_admin());
 
 CREATE POLICY "Anyone can insert order items" ON public.order_items
   FOR INSERT WITH CHECK (true);

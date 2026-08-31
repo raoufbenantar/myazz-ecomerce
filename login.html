@@ -124,57 +124,6 @@
     return;
   }
 
-  /* ---- Détection robuste de Supabase avec retry ---- */
-  function waitForSupabase(maxRetries, callback) {
-    var attempt = 0;
-    function tryInit() {
-      attempt++;
-      console.log('[MYAZZ] Tentative init Supabase #' + attempt);
-
-      // Vérifier que la librairie CDN est chargée
-      if (typeof window === 'undefined') {
-        callback(new Error('window non disponible'));
-        return;
-      }
-      if (!window.supabase) {
-        console.warn('[MYAZZ] window.supabase absent (librairie CDN non chargée)');
-        if (attempt < maxRetries) {
-          setTimeout(tryInit, 300);
-          return;
-        }
-        callback(new Error('La librairie Supabase n\'a pas pu être chargée. Vérifiez votre connexion internet ou si un bloqueur de pub bloque cdn.jsdelivr.net.'));
-        return;
-      }
-      if (!window.supabase.createClient) {
-        console.warn('[MYAZZ] window.supabase.createClient absent');
-        if (attempt < maxRetries) {
-          setTimeout(tryInit, 300);
-          return;
-        }
-        callback(new Error('Version incompatible de la librairie Supabase.'));
-        return;
-      }
-      // Vérifier que les credentials sont définis
-      if (typeof SUPABASE_URL === 'undefined' || typeof SUPABASE_ANON_KEY === 'undefined') {
-        callback(new Error('Configuration Supabase manquante (config.js non chargé).'));
-        return;
-      }
-      if (!SUPABASE_URL.startsWith('https://') || SUPABASE_ANON_KEY.length < 10) {
-        callback(new Error('Clés Supabase invalides. Vérifiez js/config.js.'));
-        return;
-      }
-
-      try {
-        var client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        console.log('[MYAZZ] Supabase initialisé avec succès');
-        callback(null, client);
-      } catch (e) {
-        callback(new Error('Erreur lors de l\'initialisation Supabase: ' + e.message));
-      }
-    }
-    tryInit();
-  }
-
   /* ---- Auth check (non bloquant) ---- */
   waitForSupabase(10, function(err, client) {
     if (err) {
@@ -219,12 +168,7 @@
       client.auth.signInWithPassword({ email: email, password: password })
         .then(function(res) {
           if (res.error) {
-            var msg = res.error.message;
-            if (msg === 'Invalid login credentials') {
-              msg = 'E-mail ou mot de passe incorrect.';
-            } else if (msg.includes('Email not confirmed')) {
-              msg = 'Veuillez confirmer votre e-mail avant de vous connecter.';
-            }
+            var msg = formatAuthError(res.error);
             errorEl.textContent = msg;
             errorEl.classList.add('show');
             btn.disabled = false;
@@ -242,13 +186,25 @@
         })
         .catch(function(err) {
           console.error('[MYAZZ] Login error:', err);
-          errorEl.textContent = 'Une erreur est survenue. Vérifiez votre connexion et réessayez.';
+          errorEl.textContent = formatAuthError(err);
           errorEl.classList.add('show');
           btn.disabled = false;
           btn.textContent = originalText;
         });
     });
   });
+
+  function formatAuthError(error) {
+    var code = error && (error.code || error.error_code);
+    var message = error && error.message ? error.message : '';
+    if (code === 'email_not_confirmed' || /email not confirmed/i.test(message)) {
+      return 'Veuillez confirmer votre e-mail avant de vous connecter.';
+    }
+    if (code === 'invalid_credentials' || /invalid login credentials/i.test(message)) {
+      return 'E-mail ou mot de passe incorrect.';
+    }
+    return message || 'Une erreur est survenue. Vérifiez votre connexion et réessayez.';
+  }
 
   console.log('[MYAZZ] Login form initialized.');
 })();

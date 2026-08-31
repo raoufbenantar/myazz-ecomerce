@@ -33,7 +33,7 @@ function setLocalCart(cart) {
 
 function addToLocalCart(product, qty = 1) {
   const cart = getLocalCart();
-  const existing = cart.find(item => item.product_id === product.id);
+  const existing = cart.find(item => String(item.product_id) === String(product.id));
   if (existing) {
     existing.quantity += qty;
   } else {
@@ -50,14 +50,14 @@ function addToLocalCart(product, qty = 1) {
 }
 
 function removeFromLocalCart(productId) {
-  const cart = getLocalCart().filter(item => item.product_id !== productId);
+  const cart = getLocalCart().filter(item => String(item.product_id) !== String(productId));
   setLocalCart(cart);
   window.dispatchEvent(new Event('cart-updated'));
 }
 
 function updateLocalCartQty(productId, qty) {
   const cart = getLocalCart();
-  const item = cart.find(i => i.product_id === productId);
+  const item = cart.find(i => String(i.product_id) === String(productId));
   if (item) {
     if (qty <= 0) {
       removeFromLocalCart(productId);

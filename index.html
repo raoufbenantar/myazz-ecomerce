@@ -1163,7 +1163,7 @@
       return;
     }
     grid.innerHTML = allCategories.map((c, i) => `
-      <a class="cat-card" href="#products" onclick="filterProducts(${c.id})">
+      <a class="cat-card" href="#products" data-category="${c.id}">
         <span class="cat-num">0${i+1}</span>
         <div class="cat-circle">
           <img src="${c.image_url || 'img/WhatsApp_Image_2026-07-01_at_11.02.38-removebg-preview.png'}" alt="${escapeHtml(c.name)}">
@@ -1196,7 +1196,7 @@
     const grid = document.getElementById('productsGrid');
     let products = allProducts;
     if (currentCategoryFilter) {
-      products = products.filter(p => p.category_id === currentCategoryFilter);
+      products = products.filter(p => String(p.category_id) === String(currentCategoryFilter));
     }
     if (!products.length) {
       grid.innerHTML = '<p style="color:var(--silver-dim); text-align:center; grid-column:1/-1;">Aucun produit disponible.</p>';
@@ -1209,7 +1209,7 @@
         </div>
         <div class="product-name">${escapeHtml(p.name)}</div>
         <div class="product-price">${formatPrice(p.price)}</div>
-        <button class="product-order-btn" onclick='addProductToCart(${JSON.stringify(p).replace(/'/g, "&#39;")})'>
+        <button class="product-order-btn" data-action="add-product" data-id="${p.id}">
           Ajouter au panier
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 6h15l-1.5 9h-12z"/><path d="M6 6L4.5 3H2"/><circle cx="9.5" cy="19.5" r="1.5"/><circle cx="16.5" cy="19.5" r="1.5"/></svg>
         </button>
@@ -1261,11 +1261,11 @@
           <div class="cart-item-price">${formatPrice(item.price)}</div>
         </div>
         <div class="cart-item-qty">
-          <button onclick="updateCartQty(${item.product_id}, ${item.quantity - 1})">−</button>
+          <button data-action="qty" data-id="${item.product_id}" data-qty="${item.quantity - 1}">−</button>
           <span>${item.quantity}</span>
-          <button onclick="updateCartQty(${item.product_id}, ${item.quantity + 1})">+</button>
+          <button data-action="qty" data-id="${item.product_id}" data-qty="${item.quantity + 1}">+</button>
         </div>
-        <button class="cart-item-remove" onclick="removeCartItem(${item.product_id})" aria-label="Retirer">
+        <button class="cart-item-remove" data-action="remove" data-id="${item.product_id}" aria-label="Retirer">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 6L6 18M6 6l12 12"/></svg>
         </button>
       </div>
@@ -1455,6 +1455,32 @@
     });
   }, { threshold:0.15, rootMargin:'0px 0px -60px 0px' });
   revealEls.forEach(el => io.observe(el));
+
+  /* ===== EVENT DELEGATION (no inline onclick) ===== */
+  document.getElementById('catGrid').addEventListener('click', (e) => {
+    const card = e.target.closest('.cat-card');
+    if (!card) return;
+    e.preventDefault();
+    filterProducts(Number(card.dataset.category));
+  });
+
+  document.getElementById('productsGrid').addEventListener('click', (e) => {
+    const btn = e.target.closest('.product-order-btn');
+    if (!btn) return;
+    const product = allProducts.find(x => x.id === Number(btn.dataset.id));
+    if (product) addProductToCart(product);
+  });
+
+  document.getElementById('cartItems').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const id = btn.dataset.id;
+    if (btn.dataset.action === 'remove') {
+      removeCartItem(id);
+    } else if (btn.dataset.action === 'qty') {
+      updateCartQty(id, Number(btn.dataset.qty));
+    }
+  });
 
   // Init
   initApp();
